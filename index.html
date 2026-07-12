@@ -989,10 +989,15 @@ function openPractice(pieceId){
   document.getElementById('practiceTitle').innerHTML=esc(p.title)+((+p.level>0)?` <span style="color:var(--gold);font-size:19px">${stars(p.level)}</span>`:'');
   const sv=document.getElementById('sheetView');
   const vid=document.getElementById('sheetVideo');if(vid){vid.innerHTML='';vid.style.display='none';} // 이전 곡 영상 정리
-  if(p.sheetUrl){sv.src=p.sheetUrl;sv.style.display='block';}else{sv.style.display='none';}
+  if(p.sheetUrl){sv.src=p.sheetUrl;sv.style.display='block';}else{sv.removeAttribute('src');sv.style.display='none';}
   const vbtn=document.getElementById('practiceVid');
-  vbtn.style.display=p.videoUrl?'inline-block':'none';
   vbtn.textContent='연주 영상';vbtn.onclick=openVideoForCurrent; // 악보 보기 상태로 초기화
+  if(p.videoUrl && !p.sheetUrl && location.protocol==='https:'){
+    // 악보 이미지가 없으면 영상을 메인으로 자동 재생(돌아갈 악보가 없어 토글 버튼 숨김)
+    openVideoForCurrent();vbtn.style.display='none';
+  }else{
+    vbtn.style.display=p.videoUrl?'inline-block':'none';
+  }
   const side=document.querySelector('#practice .practice-side');if(side)side.style.display=isInfoPiece(p)?'none':''; // 안내 자료는 악보를 넓게
   document.querySelectorAll('#mainApp .tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('practice').classList.add('active');
