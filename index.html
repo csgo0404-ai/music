@@ -297,6 +297,12 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
 @media (orientation:landscape){
   #practice.active{zoom:.9}
   #practice .sheet-viewport{max-height:calc(100vh - 200px)}
+  /* 연습 탭이 활성일 때 페이지(우측) 스크롤바 방지: 화면 높이에 맞춰 담고,
+     넘치는 오른쪽 나비 그리드/완주 영역은 내부에서만 스크롤(악보는 그대로) */
+  body.practice-active{overflow:hidden}
+  body.practice-active #mainApp{height:100vh;overflow:hidden}
+  #practice.active .panel{margin-bottom:0}
+  #practice.active .practice-side{max-height:calc(100vh - 200px);overflow-y:auto}
 }
 </style>
 </head>
@@ -1069,6 +1075,7 @@ function openPractice(pieceId){
   const side=document.querySelector('#practice .practice-side');if(side)side.style.display=isInfoPiece(p)?'none':''; // 안내 자료는 악보를 넓게
   document.querySelectorAll('#mainApp .tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('practice').classList.add('active');
+  document.body.classList.add('practice-active');
   document.querySelectorAll('#studentNav .nav-btn').forEach(b=>b.classList.remove('active'));
   renderBflyGrid();renderComplete();
 }
