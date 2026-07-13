@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
+<link rel="dns-prefetch" href="https://res.cloudinary.com">
 <title>음악</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎵%3C/text%3E%3C/svg%3E">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -102,8 +104,12 @@ a{color:var(--sky-deep)}
   box-shadow:0 4px 14px rgba(120,150,170,.12);transition:.15s;display:flex;flex-direction:column}
 .piece-card:hover{box-shadow:0 8px 22px rgba(90,140,160,.2);transform:translateY(-2px)}
 .piece-card.started{border-color:var(--sky);background:linear-gradient(160deg,#f3fbfe,#fff)}
-.piece-card.done{border-color:#b9c4cf;background:linear-gradient(160deg,#eaf0f5,#f7fafc);box-shadow:0 2px 8px rgba(120,140,160,.22)}
-.piece-card.mem-done{border-color:#f0c14b;background:linear-gradient(160deg,#fff2c9,#fffdf3);box-shadow:0 2px 10px rgba(230,168,23,.28)}
+/* 연습 완주 = 앱 하늘색(테두리=탭 색, 연한 배경) */
+.piece-card.done{border-color:var(--sky);background:linear-gradient(160deg,#e6f5fc,#f5fbfe);box-shadow:0 2px 10px rgba(124,192,221,.24)}
+/* 외워서 완주 = 무지개 그라데이션(배경+테두리) */
+.piece-card.mem-done{border:2px solid transparent;
+  background:linear-gradient(160deg,#ffe2ea,#fff2d4,#e2f7e0,#ddeffb,#ece2fb) padding-box,
+            linear-gradient(120deg,#ff9db0,#ffd76a,#8fd9ba,#6ec6ff,#b57bff) border-box}
 .piece-card.info{border-color:#d7dce0;background:linear-gradient(160deg,#fafbfc,#fff)}
 .done-stamp{position:absolute;top:8px;right:8px;background:#3b8f5f;color:#fff;border-radius:50%;
   width:50px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -114,8 +120,8 @@ a{color:var(--sky-deep)}
 .piece-level{color:var(--gold);font-size:15px}
 .progress-wrap{background:var(--sky-soft);border-radius:10px;height:14px;overflow:hidden}
 .progress-bar{height:100%;background:linear-gradient(90deg,var(--sky),var(--sky-deep));border-radius:10px;transition:width .3s}
-.progress-bar.done{background:linear-gradient(90deg,#d6dee6,#9aa9b8)}
-.progress-bar.mem{background:linear-gradient(90deg,#ffdf7e,#e6a817)}
+.progress-bar.done{background:linear-gradient(90deg,#93d8f0,#4fa6cc)}
+.progress-bar.mem{background:linear-gradient(90deg,#ff9db0,#ffd76a,#8fd9ba,#6ec6ff,#b57bff)}
 .mini-btn{border:none;border-radius:12px;padding:6px 12px;font-size:15px;background:var(--sky-soft);color:var(--sky-deep)}
 .mini-btn.vid{background:#ffe1e1;color:#d1585f}
 .count-tag{font-size:14px;color:var(--brown)}
@@ -124,10 +130,16 @@ a{color:var(--sky-deep)}
 .practice-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
 .practice-title{font-family:'Jua';font-size:24px;color:var(--sky-deep)}
 .practice-body{display:flex;gap:18px;align-items:stretch;flex-wrap:wrap}
-.sheet-col{flex:1 1 60%;min-width:280px;display:flex;justify-content:center;align-items:flex-start}
+.sheet-col{flex:1 1 60%;min-width:280px;display:flex;flex-direction:column;align-items:stretch}
 .practice-side{flex:1 1 32%;min-width:250px;display:flex;flex-direction:column;justify-content:flex-start}
 /* 태블릿 가로모드에서 악보를 최대한 크게: 헤더 제외 화면 높이를 거의 다 사용 */
-.sheet-view{width:100%;max-height:calc(100vh - 235px);object-fit:contain;border:2px solid var(--line);border-radius:14px;background:#fff;display:block;margin:0}
+/* 악보 뷰포트: 세로로 길면 안에서 스크롤(잘림 없음). 짧으면 그대로 표시 */
+.sheet-viewport{width:100%;max-height:calc(100vh - 230px);overflow-y:auto;border:2px solid var(--line);border-radius:14px;background:#fff;
+  scrollbar-width:thin;scrollbar-color:var(--sky) var(--sky-soft)}
+.sheet-viewport::-webkit-scrollbar{width:11px}
+.sheet-viewport::-webkit-scrollbar-track{background:var(--sky-soft);border-radius:10px;margin:4px}
+.sheet-viewport::-webkit-scrollbar-thumb{background:linear-gradient(var(--sky),var(--sky-deep));border-radius:10px;border:2px solid var(--sky-soft)}
+.sheet-view{width:86%;display:block;margin:0 auto}
 .sheet-video{width:100%;aspect-ratio:16/9;background:#000;border:2px solid var(--line);border-radius:14px;overflow:hidden}
 .sheet-video iframe{width:100%;height:100%;border:none;display:block}
 .complete-btns{margin-top:14px;text-align:center}
@@ -236,6 +248,7 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
 .rank-row .nm{flex:1;font-size:15px;color:var(--ink)}
 .rank-row .nm[oncontextmenu],.rank-row .nm[onclick]{cursor:pointer;text-decoration:underline;text-decoration-color:var(--line)}
 .rank-row .ct{font-size:14px;color:var(--brown);font-weight:bold}
+.rankview .cp-col.piggy-panel{border:2px solid var(--sky)} /* 저금통만 하늘색 테두리 */
 .rankview .piggy-panel{display:flex;flex-direction:column}
 .rankview .cp-layout{justify-content:center;align-items:stretch}
 .rankview .cp-col h2{text-align:left}
@@ -260,10 +273,6 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
 .tb-class-stat-num{font-size:104px;font-weight:900;color:var(--sky-deep);font-family:'Jua';line-height:1}
 .tb-class-stat-unit{font-size:22px;color:var(--brown);font-weight:bold}
 .tb-class-prog-pct{font-size:18px;color:var(--brown);font-weight:bold;margin-left:2px}
-.tb-classfile-card.full{animation:tbBankBounce 1s ease-in-out infinite}
-.tb-classfile-card.full::after{content:'✨';position:absolute;top:4px;right:8px;font-size:18px;z-index:2;animation:tbBankSpark 1.2s ease-in-out infinite}
-@keyframes tbBankBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-@keyframes tbBankSpark{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
 /* 학생별 표 */
 .stu-table-wrap{overflow-x:auto;border-radius:14px;border:2px solid var(--line);margin:4px 0}
 .stu-table{width:100%;border-collapse:collapse;font-size:14px;background:#fff;min-width:480px}
@@ -346,7 +355,10 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
         </div>
       </div>
       <div class="practice-body">
-        <div class="sheet-col"><img id="sheetView" class="sheet-view" alt="악보"><div id="sheetVideo" class="sheet-video" style="display:none"></div></div>
+        <div class="sheet-col">
+          <div id="sheetViewport" class="sheet-viewport"><img id="sheetView" class="sheet-view" alt="악보" fetchpriority="high"></div>
+          <div id="sheetVideo" class="sheet-video" style="display:none"></div>
+        </div>
         <div class="practice-side">
           <div class="bfly-grid" id="bflyGrid"></div>
           <div id="completeBtns" class="complete-btns"></div>
@@ -425,6 +437,7 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
     <div class="field"><label>악보 이미지</label>
       <input id="pfSheet" type="file" accept="image/*" onchange="onSheetPick(event)">
       <img id="pfSheetPreview" style="max-width:100%;margin-top:8px;border-radius:10px;display:none">
+      <button type="button" class="tbtn ghost" id="pfRemoveSheet" style="display:none;margin-top:8px" onclick="removeSheetImg()">🗑️ 이미지 삭제</button>
     </div>
     <div class="row-inline" style="margin-top:8px">
       <button class="tbtn" id="pfSave" onclick="savePiece()">저장</button>
@@ -490,6 +503,12 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
         <input id="cfgGoalTotal" type="number" min="0" placeholder="예: 50" style="width:140px;padding:9px 11px;border:2px solid var(--line);border-radius:10px">
         <button class="tbtn" onclick="saveGoalTotal()">목표 저장</button>
       </div>
+      <div class="desc" style="margin-top:10px">저금통에 모인 <b>곡 수를 직접 수정</b>할 수 있어요(0으로 초기화도 가능). 목표를 넘어 <b>100% 이상</b>도 계속 채워집니다. <small>(학생 연습·완주 기록은 그대로 유지돼요)</small></div>
+      <div class="row-inline">
+        <input id="cfgPiggyCount" type="number" min="0" placeholder="예: 0" style="width:140px;padding:9px 11px;border:2px solid var(--line);border-radius:10px">
+        <button class="tbtn ghost" onclick="editPiggyCount()">🐷 저금통 개수 수정</button>
+      </div>
+      <div id="piggyResetStatus" class="desc" style="margin-top:4px"></div>
     </div>
 
     <div class="set-sec">
@@ -752,18 +771,23 @@ function _notifyReduce(){
 /* ===== 설정(곡 목록/악기 표시) ===== */
 let _cfg={instruments:{},pieces:[]}; // 교사·학생 공용 현재 설정
 function _defaultCfg(){
-  return {instruments:{kalimba:{visible:true,label:'칼림바'},recorder:{visible:true,label:'리코더'},danso:{visible:true,label:'단소'}},pieces:[],reloadAt:0,cfgVer:0,goalTotal:0};
+  return {instruments:{kalimba:{visible:true,label:'칼림바'},recorder:{visible:true,label:'리코더'},danso:{visible:true,label:'단소'}},pieces:[],reloadAt:0,cfgVer:0,goalTotal:0,piggyBaseline:0};
 }
 function _normCfg(c){
   c=c||{};const d=_defaultCfg();
   const inst=Object.assign({},d.instruments,c.instruments||{});
-  return {instruments:inst,pieces:Array.isArray(c.pieces)?c.pieces:[],reloadAt:+c.reloadAt||0,cfgVer:+c.cfgVer||0,goalTotal:Math.max(0,+c.goalTotal||0)};
+  return {instruments:inst,pieces:Array.isArray(c.pieces)?c.pieces:[],reloadAt:+c.reloadAt||0,cfgVer:+c.cfgVer||0,goalTotal:Math.max(0,+c.goalTotal||0),piggyBaseline:Math.round(+c.piggyBaseline||0)};
 }
 /* Cloudinary 썸네일: 목록용 자동 축소(w_400,f_auto,q_auto) — 원본은 연습 화면에서만 로드.
    ?v= 버전 쿼리는 그대로 유지되어 캐시 무효화도 함께 동작. */
 function _thumb(url){
   if(!url)return'';
   return url.replace(/\/upload\/(?!.*\/upload\/)/,'/upload/w_400,f_auto,q_auto/');
+}
+/* 연습 화면 악보: 업스케일 없이 '선명도 보정(e_sharpen)'만 → 원본 크기 유지라 가볍고, 라인 악보가 또렷해짐 */
+function _sheetSrc(url){
+  if(!url)return'';
+  return url.replace(/\/upload\/(?!.*\/upload\/)/,'/upload/e_sharpen:100,f_auto,q_auto/');
 }
 async function loadCfg(forceFull){
   // 1) 로컬 캐시 즉시 적용(서버 없이도 바로 동작) — 악보는 거의 안 바뀌므로 로컬을 최대한 활용
@@ -843,7 +867,7 @@ async function showApp(){
     document.body.classList.remove('force-landscape'); // 교사는 세로/컴퓨터 자유
     document.getElementById('whoLabel').textContent='선생님';
     activateTab('tReview','#teacherNav');
-    renderInstToggles();renderPiecesList();refreshReview(false);
+    renderInstToggles();renderPiecesList();refreshReview(false);_startTeacherPoll(); // 초기 진입(날짜별)에도 자동 갱신 폴링 시작
   }else{
     document.body.classList.add('force-landscape'); // 학생은 가로 모드 권장(세로면 회전 안내)
     _lockLandscape();
@@ -894,18 +918,21 @@ function activateTab(id,navSel){
   document.getElementById(id).classList.add('active');
   document.querySelectorAll(navSel+' .nav-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
 }
+function _stopSheetVideo(){const v=document.getElementById('sheetVideo');if(v&&v.innerHTML){v.innerHTML='';v.style.display='none';}} // 연습화면 벗어날 때 배경 재생 중단
 function showTab(id,btn){
+  _stopSheetVideo();
   document.querySelectorAll('#mainApp .tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   const nav=btn?btn.closest('.nav'):null;
   if(nav)nav.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   if(id!=='rank')_stopRankPoll(); // 랭킹 탭 벗어나면 폴링 정지
+  if(!({tReview:1,tStudents:1,tRank:1})[id])_stopTeacherPoll(); // 교사 데이터 탭(날짜별/학생별/랭킹)이 아니면(곡 관리 등) 폴링 정지
   if(id==='songs')renderSongs();
   if(id==='rank'){renderRank();_startRankPoll();}
-  if(id==='tReview')refreshReview(false);
-  if(id==='tStudents')refreshTeacherData(false,'students');
-  if(id==='tRank')refreshTeacherData(false,'rank');
+  if(id==='tReview'){refreshReview(false);_startTeacherPoll();}
+  if(id==='tStudents'){refreshTeacherData(false,'students');_startTeacherPoll();}
+  if(id==='tRank'){refreshTeacherData(false,'rank');_startTeacherPoll();}
   if(id==='tPieces')renderPiecesList();
 }
 /* 랭킹 탭에 있을 때만 60초마다 초경량 digest 확인 → 값이 바뀐 경우에만 랭킹 재조회 */
@@ -919,6 +946,25 @@ function _startRankPoll(){
     try{const r=await apiGet('getMusicDigest',{});if(!r||!r.ok)return;
       const dg=r.count+'|'+r.latest+'|'+(r.scnt||0);
       if(dg!==_rankDigest){_rankDigest=dg;renderRank(true);}
+    }catch(e){}
+  },60000);
+}
+/* 교사 날짜별: 탭에 머무는 동안 학생 변경을 자동 감지해 갱신(digest 변경 시에만 재조회) */
+/* 교사 데이터 탭(날짜별/학생별/랭킹): 탭에 머무는 동안 60초마다 학생 변경 감지 → 변경 시에만 재조회.
+   곡 관리 탭이나 다른 화면으로 가면 정지. 화면 꺼짐(document.hidden)이면 건너뜀. */
+let _teacherTimer=null;
+function _stopTeacherPoll(){if(_teacherTimer){clearInterval(_teacherTimer);_teacherTimer=null;}}
+function _startTeacherPoll(){
+  _stopTeacherPoll();
+  _teacherTimer=setInterval(async()=>{
+    if(document.hidden)return;
+    const map={tReview:'review',tStudents:'students',tRank:'rank'};
+    let active=null;
+    for(const id in map){const t=document.getElementById(id);if(t&&t.classList.contains('active')){active=map[id];break;}}
+    if(!active){_stopTeacherPoll();return;} // 곡 관리 등으로 이동 → 폴링 정지
+    try{const r=await apiGet('getMusicDigest',{});if(!r||!r.ok)return;
+      const dg=r.count+'|'+r.latest+'|'+(r.scnt||0);
+      if(dg!==_lastAllDigest)refreshTeacherData(false,active); // 변경 있을 때만 현재 탭 재렌더
     }catch(e){}
   },60000);
 }
@@ -938,7 +984,7 @@ function renderStudentNav(){
 function showInst(key,btn){
   const vis=_visInsts();
   if(!vis.find(i=>i.key===key))key=vis.length?vis[0].key:key;
-  _curInst=key;_stopRankPoll();
+  _curInst=key;_stopRankPoll();_stopSheetVideo();
   document.querySelectorAll('#mainApp .tab').forEach(t=>t.classList.remove('active'));
   const songs=document.getElementById('songs');if(songs)songs.classList.add('active');
   const btns=[...document.querySelectorAll('#studentNav .nav-btn')];
@@ -969,7 +1015,7 @@ function renderSongs(){
     const c=countFor(p.id),tgt=pieceTarget(p),pct=Math.min(100,Math.round(c/tgt*100));
     const practiced=c>=tgt, mem=compFor(p.id)==='memorized', done=practiced||mem;
     const state=mem?'mem-done':(practiced?'done':(c>0?'started':'todo')); // 외워서완주=금빛, 연습완주=은빛
-    const ctag=mem?'🌟 외워서 완주':(practiced?'🏅 연습 완주':('연습 '+c+' / '+tgt+'번'));
+    const ctag=mem?'🌈 외워서 완주':(practiced?'🏅 연습 완주':('연습 '+c+' / '+tgt+'번'));
     html+=`<div class="piece-card ${state}" onclick="openPractice('${p.id}')">
       <div class="piece-body">
       <div class="piece-name">${esc(p.title)}</div>
@@ -980,8 +1026,22 @@ function renderSongs(){
   });
   html+='</div>';
   box.innerHTML=html;
+  _prefetchSheets(list); // 이 악기 악보들을 배경에서 미리 받아둠 → 곡 클릭 시 즉시 표시
+}
+/* 악보 미리 받기: 목록의 악보 이미지를 백그라운드로 최대 3개씩 순차 로드(중복 방지). 클릭 지연·최초 생성 지연 해소 */
+const _sheetPrefetched=new Set();
+function _prefetchSheets(list){
+  const urls=(list||[]).filter(p=>p&&p.sheetUrl).map(p=>_sheetSrc(p.sheetUrl)).filter(u=>!_sheetPrefetched.has(u));
+  let i=0,active=0;const MAX=3;
+  const next=()=>{while(active<MAX&&i<urls.length){const u=urls[i++];_sheetPrefetched.add(u);active++;const im=new Image();im.onload=im.onerror=()=>{active--;next();};im.src=u;}};
+  next();
 }
 
+/* ===== 악보: 세로로 길면 뷰포트 안에서 스크롤(잘림 없음) ===== */
+function _showSheetArea(show){
+  const vp=document.getElementById('sheetViewport');
+  if(vp){vp.style.display=show?'block':'none';if(show)vp.scrollTop=0;}
+}
 let _curPiece=null;
 function openPractice(pieceId){
   const p=pieceById(pieceId);if(!p){toast('곡을 찾을 수 없어요');return;}
@@ -989,7 +1049,7 @@ function openPractice(pieceId){
   document.getElementById('practiceTitle').innerHTML=esc(p.title)+((+p.level>0)?` <span style="color:var(--gold);font-size:19px">${stars(p.level)}</span>`:'');
   const sv=document.getElementById('sheetView');
   const vid=document.getElementById('sheetVideo');if(vid){vid.innerHTML='';vid.style.display='none';} // 이전 곡 영상 정리
-  if(p.sheetUrl){sv.src=p.sheetUrl;sv.style.display='block';}else{sv.removeAttribute('src');sv.style.display='none';}
+  if(p.sheetUrl){sv.src=_sheetSrc(p.sheetUrl);_showSheetArea(true);}else{sv.removeAttribute('src');_showSheetArea(false);}
   const vbtn=document.getElementById('practiceVid');
   vbtn.textContent='연주 영상';vbtn.onclick=openVideoForCurrent; // 악보 보기 상태로 초기화
   if(p.videoUrl && !p.sheetUrl && location.protocol==='https:'){
@@ -1093,13 +1153,13 @@ function openVideoForCurrent(){
   const img=document.getElementById('sheetView'),vid=document.getElementById('sheetVideo');
   const src=`https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1&modestbranding=1&autoplay=1`;
   vid.innerHTML=`<iframe src="${esc(src)}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
-  img.style.display='none';vid.style.display='block';
+  _showSheetArea(false);vid.style.display='block'; // 악보 영역(뷰포트+페이저) 숨기고 영상 표시
   const btn=document.getElementById('practiceVid');btn.textContent='🎼 악보 보기';btn.onclick=showSheetForCurrent;
 }
 function showSheetForCurrent(){
-  const img=document.getElementById('sheetView'),vid=document.getElementById('sheetVideo');
+  const vid=document.getElementById('sheetVideo');
   vid.innerHTML='';vid.style.display='none';
-  const p=pieceById(_curPiece);if(p&&p.sheetUrl)img.style.display='block';
+  const p=pieceById(_curPiece);if(p&&p.sheetUrl)_showSheetArea(true);
   const btn=document.getElementById('practiceVid');btn.textContent='연주 영상';btn.onclick=openVideoForCurrent;
 }
 
@@ -1117,11 +1177,11 @@ async function renderRank(silent){
     return;
   }
   const myNum=localStorage.getItem('studentNum');
-  const list=(data.students||[]).slice().sort((a,b)=>b.count-a.count);
+  const list=(data.students||[]).map(s=>({...s,count:_visRankCount(s)})).sort((a,b)=>b.count-a.count); // 표시 악기 점수만 합산
   let rank=0,prev=null,seen=0; // 동점은 같은 순위
   list.forEach(s=>{seen++;if(prev===null||s.count!==prev){rank=seen;prev=s.count;}s._rank=rank;});
   const me=list.find(s=>String(s.num)===String(myNum));
-  const total=data.total||0;
+  const total=Math.max(0,(data.total||0)-(+((_cfg&&_cfg.piggyBaseline)||0))); // 저금통 = 전체 합산 − 수정 기준
   const goal=+((_cfg&&_cfg.goalTotal)||0);
   const medal=r=>r===1?'🥇':r===2?'🥈':r===3?'🥉':r+'위';
   const rows=list.map(s=>{const isMe=me&&s===me;
@@ -1192,6 +1252,7 @@ async function toggleInst(key,btn){
   renderInstToggles();
   const ok=await pushCfg(); // 토글 즉시 저장(따로 저장 버튼 안 눌러도 반영)
   toast(ok?(_cfg.instruments[key].visible?'표시로 저장됐어요 ✅':'숨김으로 저장됐어요 ✅'):'⚠️ 저장 실패');
+  if(ok&&document.getElementById('tRank').classList.contains('active'))renderTeacherRank(); // 랭킹에 표시 악기 즉시 반영
 }
 async function saveCfgAndReload(){
   _cfg.reloadAt=Date.now();
@@ -1274,13 +1335,14 @@ function deletePiece(id){
   renderPiecesList();pushCfg().then(()=>toast('삭제됐어요'));
 }
 
-let _editPieceId=null,_pendingSheetDataUrl=null;
+let _editPieceId=null,_pendingSheetDataUrl=null,_removeSheet=false;
 function openPieceForm(id){
-  _editPieceId=id||null;_pendingSheetDataUrl=null;
+  _editPieceId=id||null;_pendingSheetDataUrl=null;_removeSheet=false;
   document.getElementById('pfMsg').textContent='';
   document.getElementById('pieceModalTitle').textContent=id?'곡 수정':'곡 추가';
   const pv=document.getElementById('pfSheetPreview');
   document.getElementById('pfSheet').value='';
+  const rmBtn=document.getElementById('pfRemoveSheet');
   if(id){
     const p=pieceById(id);
     document.getElementById('pfInst').value=p.inst;
@@ -1288,8 +1350,9 @@ function openPieceForm(id){
     document.getElementById('pfLevel').value=+p.level||0;
     document.getElementById('pfTarget').value=pieceTarget(p);
     document.getElementById('pfVideo').value=p.videoUrl||'';
-    if(p.sheetUrl){pv.src=p.sheetUrl;pv.style.display='block';}else pv.style.display='none';
+    if(p.sheetUrl){pv.src=p.sheetUrl;pv.style.display='block';rmBtn.style.display='inline-block';}else{pv.style.display='none';rmBtn.style.display='none';}
   }else{
+    rmBtn.style.display='none';
     document.getElementById('pfInst').value='kalimba';
     document.getElementById('pfTitle').value='';
     document.getElementById('pfLevel').value=1;
@@ -1302,7 +1365,8 @@ function openPieceForm(id){
 /* 우클릭 복제: 같은 설정으로 '새 곡' 폼을 열되 악보 이미지는 비움(새로 업로드) */
 function openPieceDup(id){
   const src=pieceById(id);if(!src)return false;
-  _editPieceId=null;_pendingSheetDataUrl=null;
+  _editPieceId=null;_pendingSheetDataUrl=null;_removeSheet=false;
+  document.getElementById('pfRemoveSheet').style.display='none';
   document.getElementById('pfMsg').textContent='';
   document.getElementById('pieceModalTitle').textContent='곡 복제 (악보만 새로 등록)';
   document.getElementById('pfInst').value=src.inst;
@@ -1318,8 +1382,15 @@ function openPieceDup(id){
 function onSheetPick(ev){
   const f=ev.target.files&&ev.target.files[0];if(!f)return;
   const rd=new FileReader();
-  rd.onload=()=>{_pendingSheetDataUrl=rd.result;const pv=document.getElementById('pfSheetPreview');pv.src=rd.result;pv.style.display='block';};
+  rd.onload=()=>{_pendingSheetDataUrl=rd.result;_removeSheet=false;const pv=document.getElementById('pfSheetPreview');pv.src=rd.result;pv.style.display='block';document.getElementById('pfRemoveSheet').style.display='inline-block';};
   rd.readAsDataURL(f);
+}
+/* 등록된(또는 방금 고른) 악보 이미지 제거 → 저장 시 sheetUrl 비움 */
+function removeSheetImg(){
+  _pendingSheetDataUrl=null;_removeSheet=true;
+  const pv=document.getElementById('pfSheetPreview');pv.removeAttribute('src');pv.style.display='none';
+  document.getElementById('pfSheet').value='';
+  document.getElementById('pfRemoveSheet').style.display='none';
 }
 async function savePiece(){
   const title=document.getElementById('pfTitle').value.trim();
@@ -1341,6 +1412,8 @@ async function savePiece(){
       const url=await _uploadWithRetry(_pendingSheetDataUrl,'music_'+_sanitizePublicId(p.id));
       // 같은 public_id로 덮어써도 URL이 동일 → ?v로 교체된 악보만 재수신, 안 바뀐 건 브라우저 캐시 영구 사용
       p.sheetUrl=url?(url.split('?')[0]+'?v='+Date.now()):url;
+    }else if(_removeSheet){
+      p.sheetUrl=''; // 이미지 삭제(Cloudinary 원본은 남지만 앱에선 미표시)
     }
     const ok=await pushCfg();
     if(!ok)throw new Error('설정 저장 실패');
@@ -1511,9 +1584,10 @@ async function teacherAdjust(code,pieceId,mode){
 
 /* ===== 저금통(독서통장식) + 교사 랭킹(좌우 2단) ===== */
 function _piggyHtml(total,goal){
-  const pct=goal>0?Math.min(100,Math.round(total/goal*100)):(total>0?100:0);const full=pct>=100;
+  const pct=goal>0?Math.round(total/goal*100):(total>0?100:0); // 100% 넘어도 실제 %로 표시
+  const fillW=goal>0?Math.min(100,pct):(total>0?100:0); // 게이지 막대는 시각상 100%까지만 채움
   return `
-    <div class="tb-classfile-card${full?' full':''}">
+    <div class="tb-classfile-card">
       <div class="tb-classfile-pig">
         <div class="tb-classfile-pig-slot"></div>
         <div class="tb-classfile-pig-emoji"><img class="pig-img" src="${PIG_SVG_URI}" alt="돼지"></div>
@@ -1526,7 +1600,7 @@ function _piggyHtml(total,goal){
         </div>
         <div class="piggy-gauge-wrap">
           <div class="piggy-gauge">
-            <div class="piggy-gauge-fill" style="width:${goal>0?pct:(total>0?100:0)}%"></div>
+            <div class="piggy-gauge-fill" style="width:${fillW}%"></div>
             <span class="pg-label">${goal>0?pct+'%':(total>0?'100%':'0%')}</span>
           </div>
         </div>
@@ -1544,11 +1618,20 @@ function _completedFor(sd){
   });
   return dc;
 }
-/* 랭킹 점수 — 실제 연습 횟수 + 외워서 완주 보너스(곡당 목표의 절반) */
+/* 표시(숨김 해제)된 악기 집합 */
+function _visInstSet(){return new Set(_visInsts().map(i=>i.key));}
+/* 워커 랭킹 응답에서 '표시된 악기' 점수만 합산(폴백: 전체 count) */
+function _visRankCount(s){
+  if(s&&s.sc&&typeof s.sc==='object'){const vis=_visInstSet();let t=0;for(const k in s.sc){if(vis.has(k))t+=s.sc[k];}return t;}
+  return (s&&s.count)||0;
+}
+/* 랭킹 점수(교사·표시 악기만) — 실제 연습 횟수 + 외워서 완주 보너스(곡당 목표의 절반) */
 function _rankScore(sd){
   const ents=(sd&&sd.entries)||[],comp=(sd&&sd.completions)||{};
-  let sc=ents.length;
-  _cfg.pieces.forEach(p=>{const tgt=pieceTarget(p);if(tgt>0&&comp[p.id]&&comp[p.id].type==='memorized')sc+=Math.round(tgt/2);});
+  const vis=_visInstSet();const pmap={};_cfg.pieces.forEach(p=>pmap[p.id]=p);
+  let sc=0;
+  ents.forEach(e=>{const p=e&&pmap[e.pieceId];if(p&&vis.has(p.inst)&&pieceTarget(p)>0)sc++;}); // 표시 악기 연습만(안내자료 target0 제외 — 워커 sc와 일치)
+  _cfg.pieces.forEach(p=>{const tgt=pieceTarget(p);if(tgt>0&&vis.has(p.inst)&&comp[p.id]&&comp[p.id].type==='memorized')sc+=Math.round(tgt/2);});
   return sc;
 }
 function renderTeacherRank(){
@@ -1564,8 +1647,10 @@ function renderTeacherRank(){
       <span class="nm" oncontextmenu="return openStudentPage('${esc(s.code)}')" onclick="openStudentPage('${esc(s.code)}')">${esc(s.name)}</span>
       <span class="ct">${s.count}번</span></div>`;
   }).join('')||'<p class="empty-note">아직 기록이 없어요.</p>';
-  const total=(_allStudents||[]).reduce((t,s)=>t+_completedFor(s.data),0); // 우리반 완료 곡 수
-  if(piggy)piggy.innerHTML=_piggyHtml(total,+((_cfg&&_cfg.goalTotal)||0));
+  const rawTotal=(_allStudents||[]).reduce((t,s)=>t+_completedFor(s.data),0); // 우리반 완료 곡 수(전체)
+  const goal=+((_cfg&&_cfg.goalTotal)||0);
+  const total=Math.max(0,rawTotal-(+((_cfg&&_cfg.piggyBaseline)||0))); // 수정 기준 차감
+  if(piggy)piggy.innerHTML=_piggyHtml(total,goal);
 }
 
 /* ================= 교사: 설정/학생등록/백업 모달 ================= */
@@ -1574,6 +1659,10 @@ function openSettings(){
   renderInstToggles();
   _regStatus('');
   const gt=document.getElementById('cfgGoalTotal');if(gt)gt.value=(_cfg&&_cfg.goalTotal)||'';
+  const pc=document.getElementById('cfgPiggyCount');if(pc){ // 현재 저금통 곡 수 미리 채움
+    const raw=(_allStudents||[]).reduce((t,s)=>t+_completedFor(s.data),0);
+    pc.value=_allStudents?Math.max(0,raw-(+((_cfg&&_cfg.piggyBaseline)||0))):'';
+  }
   // 관리 목록 표시(데이터 없으면 로드)
   if(_allStudents){renderManageList();}
   else{document.getElementById('manageStuList').innerHTML='<div class="desc">불러오는 중…</div>';
@@ -1585,6 +1674,23 @@ async function saveGoalTotal(){
   _regStatus('⏳ 목표 저장 중...');
   const ok=await pushCfg();
   _regStatus(ok?`✅ 저금통 목표 ${v?v+'곡으로 ':'없음으로 '}저장했어요.`:'⚠️ 저장 실패');
+  if(ok&&document.getElementById('tRank').classList.contains('active'))renderTeacherRank();
+}
+/* 저금통 개수 수정: 표시 곡 수를 원하는 값으로. 기준선(baseline)=전체합계−원하는값 으로 저장(학생 기록은 유지) */
+async function editPiggyCount(){
+  const st=document.getElementById('piggyResetStatus');const setSt=m=>{if(st)st.textContent=m||'';};
+  const inp=document.getElementById('cfgPiggyCount');
+  if(!inp||inp.value===''){setSt('바꿀 곡 수를 입력하세요.');return;}
+  const want=Math.max(0,Math.round(+inp.value||0));
+  setSt('⏳ 현재 합계 확인 중...');
+  try{await ensureAllStudents(true);}catch(e){setSt('⚠️ 학생 데이터를 불러오지 못했어요.');return;}
+  const rawTotal=(_allStudents||[]).reduce((t,s)=>t+_completedFor(s.data),0);
+  const shown=Math.max(0,rawTotal-(+((_cfg&&_cfg.piggyBaseline)||0)));
+  if(!confirm(`우리반 저금통을 ${want}곡으로 바꿀까요? (지금 ${shown}곡)\n학생 연습·완주 기록은 그대로 유지됩니다.`)){setSt('');return;}
+  _cfg.piggyBaseline=rawTotal-want; // 표시값 = rawTotal − baseline = want
+  setSt('⏳ 저장 중...');
+  const ok=await pushCfg();
+  setSt(ok?`✅ 저금통을 ${want}곡으로 수정했어요. (이전 ${shown}곡)`:'⚠️ 저장 실패');
   if(ok&&document.getElementById('tRank').classList.contains('active'))renderTeacherRank();
 }
 function _regStatus(m){const el=document.getElementById('regStatus');if(el)el.textContent=m||'';}
