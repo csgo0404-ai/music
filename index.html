@@ -293,6 +293,11 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
   body.force-landscape #mainApp{overflow:hidden;height:100vh}
 }
 @keyframes rotateHint{0%,100%{transform:rotate(0)}50%{transform:rotate(90deg)}}
+/* 태블릿 가로: 연습 화면이 화면에 딱 맞게 살짝 축소 → 전체 스크롤바 방지 */
+@media (orientation:landscape){
+  #practice.active{zoom:.9}
+  #practice .sheet-viewport{max-height:calc(100vh - 200px)}
+}
 </style>
 </head>
 <body>
@@ -591,6 +596,8 @@ const KALIMBA_SVG="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5
 const RECORDER_SVG="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHJlY3QgeD0iOS40IiB5PSIyLjMiIHdpZHRoPSI1LjIiIGhlaWdodD0iMTkuNCIgcng9IjIuNiIgZmlsbD0iI2YyZTRiZCIvPjxyZWN0IHg9IjkuNCIgeT0iMi4zIiB3aWR0aD0iNS4yIiBoZWlnaHQ9IjMuMiIgcng9IjIuMiIgZmlsbD0iI2Q5YzQ4YyIvPjxnIGZpbGw9IiM3YTVhMmUiPjxjaXJjbGUgY3g9IjEyIiBjeT0iOCIgcj0iMS4wNSIvPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTEiIHI9IjEuMDUiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjE0IiByPSIxLjA1Ii8+PGNpcmNsZSBjeD0iMTIiIGN5PSIxNyIgcj0iMS4wNSIvPjwvZz48L3N2Zz4=";
 const DANSO_SVG="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHJlY3QgeD0iMTAiIHk9IjIuMyIgd2lkdGg9IjQiIGhlaWdodD0iMTkuNCIgcng9IjIiIGZpbGw9IiNjQkEzNWQiLz48cmVjdCB4PSIxMCIgeT0iMi4zIiB3aWR0aD0iNCIgaGVpZ2h0PSIyLjciIHJ4PSIxLjgiIGZpbGw9IiM5ZTdjMzkiLz48ZyBmaWxsPSIjOGE2YTJjIj48cmVjdCB4PSIxMCIgeT0iOC40IiB3aWR0aD0iNCIgaGVpZ2h0PSIxIi8+PHJlY3QgeD0iMTAiIHk9IjE1LjIiIHdpZHRoPSI0IiBoZWlnaHQ9IjEiLz48L2c+PGcgZmlsbD0iIzRkMzExMSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMSIgcj0iLjk1Ii8+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMy4yIiByPSIuOTUiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjE4IiByPSIuOTUiLz48L2c+PC9zdmc+";
 const INSTS=[{key:'kalimba',label:'칼림바',emoji:'<span class="ic-kal"></span>'},{key:'recorder',label:'리코더',emoji:'<span class="ic-rec"></span>'},{key:'danso',label:'단소',emoji:'<span class="ic-danso"></span>'}];
+/* 통통한 별(트위모지 스타일) — 기기 이모지 폰트에 상관없이 동일 표시 */
+const STAR_SVG_URI="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNiAzNiI+PHBhdGggZmlsbD0iI0ZGQUMzMyIgZD0iTTM0LjUxNiAxNS42MzljLS4yMTYtLjYyNi0uODA0LTEuMDYtMS40NjMtMS4wNzlMMjMuOTggMTQuMjgzbC0zLjIzOC04LjMzOWMtLjI0LS42MTctLjgzNC0xLjAyMy0xLjQ5Ny0xLjAyM3MtMS4yNTcuNDA2LTEuNDk3IDEuMDIzbC0zLjIzOCA4LjMzOS05LjA3My4yNzdjLS42Ni4wMi0xLjI0Ny40NTMtMS40NjMgMS4wNzktLjIxNi42MjYtLjAxNSAxLjMyMi41MDUgMS43NDFsNy4xNDggNS43NjItMi41NTkgOC42M2MtLjE4Ny42MzEuMDUyIDEuMzEyLjU5MyAxLjY5My41NDEuMzgxIDEuMjY4LjM3MyAxLjc5OS0uMDE5TDE4IDI4LjYxN2w3LjI4NiA1LjM4M2MuNTMxLjM5MiAxLjI1OC40IDEuNzk5LjAxOS41NDEtLjM4MS43OC0xLjA2Mi41OTMtMS42OTNsLTIuNTU5LTguNjMgNy4xNDgtNS43NjJjLjUxOS0uNDE5LjcyLTEuMTE1LjUwNC0xLjc0MXoiLz48L3N2Zz4=";
 const PIG_SVG_URI="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNiAzNiI+PHBhdGggZmlsbD0iI0Y0QUJCQSIgZD0iTTM0LjE5MyAxMy4zMjljLjM4Ny0uMzcxLjczMy0uNzk1IDEuMDE5LTEuMjggMS42ODYtMi44NTQuMjctMTAuMjkyLS41OTItMTAuOC0uNjk1LS40MTEtNS41MjkgMS4wNS04LjI0NiAzLjEzMkMyMy44NzYgMi44ODQgMjEuMDMxIDIgMTggMmMtMy4wMjEgMC01Ljg1Ni44NzktOC4zNDkgMi4zNjdDNi45MyAyLjI5MyAyLjExOS44MzkgMS40MjQgMS4yNDljLS44NjEuNTA4LTIuMjc2IDcuOTQ3LS41OTIgMTAuOC4yNzguNDcxLjYxNS44ODQuOTg5IDEuMjQ5Qy42NjYgMTUuODUgMCAxOC42NCAwIDIxLjQ3OSAwIDMxLjQ2OCA4LjAxMSAzNCAxOCAzNHMxOC0yLjUzMiAxOC0xMi41MjFjMC0yLjgyOC0uNjYtNS42MDYtMS44MDctOC4xNXoiLz48cGF0aCBmaWxsPSIjRUE1OTZFIiBkPSJNNy4zOTggNS45NjVjLTIuMTY2LTEuMjY3LTQuNDAyLTIuMDgtNC44LTEuODQ1LS41Ny4zMzctMS4wODMgNC45OTgtLjM1MiA4LjI2NSAxLjI3My0yLjQ4MyAzLjA0LTQuNjgyIDUuMTUyLTYuNDJ6bTI2LjM1NSA2LjQxOWMuNzMzLTMuMjY3LjIxOS03LjkyOC0uMzUxLTguMjY1LS4zOTgtLjIzNS0yLjYzNS41NzgtNC44MDEgMS44NDUgMi4xMTQgMS43MzkgMy44OCAzLjkzOCA1LjE1MiA2LjQyek0yOCAyMy4xMjVjMCA0LjQ4Ny0zLjA5NyA5LjM3NS0xMCA5LjM3NS02LjkwNCAwLTEwLTQuODg4LTEwLTkuMzc1UzExLjA5NiAxNy41IDE4IDE3LjVjNi45MDMgMCAxMCAxLjEzOCAxMCA1LjYyNXoiLz48cGF0aCBmaWxsPSIjNjYyMTEzIiBkPSJNMTUgMjQuNmMwIDEuODU3LS4zNCAyLjQtMS41IDIuNHMtMS41LS41NDMtMS41LTIuNGMwLTEuODU2LjM0LTIuMzk5IDEuNS0yLjM5OXMxLjUuNTQyIDEuNSAyLjM5OXptOSAwYzAgMS44NTctLjM0IDIuNC0xLjUgMi40cy0xLjUtLjU0My0xLjUtMi40YzAtMS44NTYuMzQtMi4zOTkgMS41LTIuMzk5czEuNS41NDIgMS41IDIuMzk5eiIvPjxjaXJjbGUgZmlsbD0iIzI5MkYzMyIgY3g9IjciIGN5PSIxNyIgcj0iMiIvPjxjaXJjbGUgZmlsbD0iIzI5MkYzMyIgY3g9IjI5IiBjeT0iMTciIHI9IjIiLz48L3N2Zz4=";
 
 /* 아이콘 CSS 주입(임베드 SVG 배경) — 모든 기기 동일 표시 */
@@ -599,7 +606,8 @@ const PIG_SVG_URI="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5
     .ic-kal{width:1.2em;height:1.2em;background-image:url("${KALIMBA_SVG}")}
     .ic-rec{width:1.2em;height:1.2em;background-image:url("${RECORDER_SVG}")}
     .ic-danso{width:1.2em;height:1.2em;background-image:url("${DANSO_SVG}")}
-    .ic-pig{width:1.25em;height:1.25em;vertical-align:-0.24em;background-image:url("${PIG_SVG_URI}")}`;
+    .ic-pig{width:1.25em;height:1.25em;vertical-align:-0.24em;background-image:url("${PIG_SVG_URI}")}
+    .ic-star{display:inline-block;width:1.5em;height:1.5em;vertical-align:-0.35em;background:center/contain no-repeat url("${STAR_SVG_URI}")}`;
   const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
 })();
 function _sanitizePublicId(id){return String(id).replace(/[^A-Za-z0-9_\-]/g,'_').slice(0,120);}
@@ -638,7 +646,7 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);}
 function playStamp(text){
   const fx=document.getElementById('stampFx');if(!fx)return;
-  fx.innerHTML=`<div class="stamp-mark">⭐<div class="t">${esc(text||'+1번')}</div></div>`;
+  fx.innerHTML=`<div class="stamp-mark"><span class="ic-star"></span><div class="t">${esc(text||'+1번')}</div></div>`;
   fx.classList.add('show');clearTimeout(fx._t);fx._t=setTimeout(()=>fx.classList.remove('show'),950);}
 function todayStr(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -1072,7 +1080,7 @@ function renderBflyGrid(){
   let html='';
   for(let i=1;i<=tgt;i++){
     const cls=i<=c?'filled':(i===c+1?'next':'');
-    html+=`<button class="bfly ${cls}" onclick="clickBfly(${i})">⭐<span class="num">${i}</span></button>`;
+    html+=`<button class="bfly ${cls}" onclick="clickBfly(${i})"><span class="ic-star"></span><span class="num">${i}</span></button>`;
   }
   grid.innerHTML=html;
 }
