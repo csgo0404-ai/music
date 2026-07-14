@@ -471,6 +471,7 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
       <div class="row-inline">
         <button class="tbtn ghost" onclick="exportJson()">📤 내보내기(JSON)</button>
         <button class="tbtn ghost" onclick="exportCsv()">📊 CSV 내보내기</button>
+        <button class="tbtn ghost" onclick="exportSheets()">🎼 악보 내보내기</button>
         <label class="tbtn ghost" style="cursor:pointer">📥 불러오기<input type="file" accept="application/json" style="display:none" onchange="importData(this)"></label>
         <button class="tbtn ghost" onclick="forceReloadStudents()">🔄 업데이트</button>
       </div>
@@ -750,9 +751,11 @@ function _mergeData(s,sSts,l){
   const older=serverNewer?l:s, newer=serverNewer?s:l;
   const delList=_normDel([...(s.delIds||[]),...(l.delIds||[])]); // 나이 기반 정리(+union)
   const delSet=_delSet(delList);
+  const resetAt=+((typeof _cfg!=='undefined'&&_cfg&&_cfg.entriesResetAt)||0); // 전체초기화 epoch — 이전 ts 기록은 병합에서 제외(로컬 캐시 부활 방지)
+  const cutoff=resetAt>0?Math.max(0,resetAt-600000):0; // 기기 시계 오차 관대(±10분): 초기화 직후 학생기록이 시계차로 잘못 드롭되는 것 방지(옛 기록은 시/일 단위라 여전히 제외)
   const byId=new Map();
-  (older.entries||[]).forEach(e=>{if(e&&e.id&&!delSet.has(e.id))byId.set(e.id,e);});
-  (newer.entries||[]).forEach(e=>{if(e&&e.id&&!delSet.has(e.id))byId.set(e.id,e);});
+  (older.entries||[]).forEach(e=>{if(e&&e.id&&!delSet.has(e.id)&&((+e.ts||0)>=cutoff))byId.set(e.id,e);});
+  (newer.entries||[]).forEach(e=>{if(e&&e.id&&!delSet.has(e.id)&&((+e.ts||0)>=cutoff))byId.set(e.id,e);});
   const nMap=new Map();[...(s.notices||[]),...(l.notices||[])].forEach(n=>{if(n&&n.nid)nMap.set(n.nid,n);}); // 교사 안내 union
   const comp=_mergeComp(older.completions,newer.completions); // 완주 기록 병합(ts 우선)
   return {entries:[...byId.values()],delIds:delList,notices:[...nMap.values()].slice(-100),completions:comp,sts:Math.max(sSts,lSts)};
@@ -790,7 +793,7 @@ function _defaultCfg(){
 function _normCfg(c){
   c=c||{};const d=_defaultCfg();
   const inst=Object.assign({},d.instruments,c.instruments||{});
-  return {instruments:inst,pieces:Array.isArray(c.pieces)?c.pieces:[],reloadAt:+c.reloadAt||0,cfgVer:+c.cfgVer||0,goalTotal:Math.max(0,+c.goalTotal||0),piggyBaseline:Math.round(+c.piggyBaseline||0)};
+  return {instruments:inst,pieces:Array.isArray(c.pieces)?c.pieces:[],reloadAt:+c.reloadAt||0,cfgVer:+c.cfgVer||0,goalTotal:Math.max(0,+c.goalTotal||0),piggyBaseline:Math.round(+c.piggyBaseline||0),entriesResetAt:+c.entriesResetAt||0};
 }
 /* Cloudinary 썸네일: 목록용 자동 축소(w_400,f_auto,q_auto) — 원본은 연습 화면에서만 로드.
    ?v= 버전 쿼리는 그대로 유지되어 캐시 무효화도 함께 동작. */
@@ -905,14 +908,15 @@ function _startUpdateWatch(){
     if(document.hidden||localStorage.getItem('role')!=='student')return;
     const now=Date.now();if(now-_lastVisChk<8000)return; // 잦은 탭 전환 스팸 방지(8초 쓰로틀)
     _lastVisChk=now;
+    // 설정(전체초기화 epoch 포함)이 바뀌었으면 cfg를 '먼저' 반영한 뒤 데이터 병합(부활 레이스 방지)
     apiGet('getMusicCfgVer',{}).then(vr=>{
-      if(!vr||!vr.ok)return;
       const cached=+(localStorage.getItem('musicCfgVer')||0);
-      if((+vr.ver||0)!==cached){ // 곡 설정이 바뀌었을 때만 전체 수신+갱신(버전 재확인 생략)
-        loadCfg(true).then(()=>{renderStudentAll();_checkReload();});
+      if(vr&&vr.ok&&(+vr.ver||0)!==cached){ // 곡 설정이 바뀌었을 때만 전체 수신+갱신
+        loadCfg(true).then(()=>{renderStudentAll();_checkReload();pullData();});
+      }else{
+        pullData(); // 교사가 연습 횟수를 조정/안내했으면 탭 복귀 시 반영
       }
-    }).catch(()=>{});
-    pullData(); // 교사가 연습 횟수를 조정/안내했으면 탭 복귀 시 반영
+    }).catch(()=>pullData());
   });
 }
 
@@ -1156,7 +1160,16 @@ function clickBfly(i){
     const d=loadData();
     const mine=d.entries.filter(e=>e.pieceId===_curPiece).sort((a,b)=>(a.ts||0)-(b.ts||0));
     const last=mine[mine.length-1];
-    if(last){d.delIds=d.delIds||[];d.delIds.push({id:last.id,t:Date.now()});d.entries=d.entries.filter(e=>e.id!==last.id);saveData(d);}
+    if(last){
+      d.delIds=d.delIds||[];d.delIds.push({id:last.id,t:Date.now()});d.entries=d.entries.filter(e=>e.id!==last.id);
+      // 연습 취소로 목표 미만이 되면 '외워서 완주'도 무효화 → 무지개 오표시·랭킹/저금통 과다집계 방지
+      d.completions=d.completions||{};
+      const cc=d.completions[_curPiece];
+      let clearedMem=false;
+      if(c-1<tgt && cc && cc.type==='memorized'){ d.completions[_curPiece]={type:'',ts:Date.now()}; clearedMem=true; }
+      saveData(d);
+      if(clearedMem)_flushSave(false); // 랭킹/저금통 정정 즉시 반영
+    }
     renderBflyGrid();renderComplete();renderSongs();
   }else if(i>c+1){
     toast('순서대로 하나씩 눌러요 ⭐');
@@ -1278,6 +1291,16 @@ async function saveCfgAndReload(){
   if(ok)toast('저장됐어요. 접속 중인 학생 화면도 새로고침돼요 ✅');
 }
 async function pushCfg(){
+  // 🛡️ 낙관적 동시성 가드: 그 사이 다른 탭/기기가 설정을 바꿨으면(서버 ver > 내 기준 ver) 덮어쓰기 거부
+  //    → 곡 추가/삭제 등 남의 변경분이 통째로 소실되는 것 방지. (확인 실패=오프라인 등은 그대로 진행)
+  try{
+    const base=+(localStorage.getItem('musicCfgVer')||0);
+    const vr=await apiGet('getMusicCfgVer',{});
+    if(vr&&vr.ok&&(+vr.ver||0)>base){
+      toast('⚠️ 다른 기기/탭에서 설정이 바뀌었어요. 새로고침 후 다시 시도해 주세요.');
+      return false;
+    }
+  }catch(e){/* 버전 확인 실패(오프라인 등) → 진행: 실제 저장이 실패하면 아래에서 처리 */}
   _cfg.cfgVer=Date.now(); // 내용 버전 갱신 → 학생은 이 값이 바뀔 때만 전체 cfg를 다시 받음
   try{
     const r=await apiPost('setMusicCfg',{teacherPw:TEACHER_PW,cfg:_cfg});
@@ -1326,7 +1349,7 @@ function movePiece(id,dir){
   // order 재부여 후 스왑
   list.forEach((x,i)=>x.order=i);
   const tmp=list[idx].order;list[idx].order=list[to].order;list[to].order=tmp;
-  renderPiecesList();pushCfg();
+  renderPiecesList();pushCfg().then(ok=>{ if(!ok)loadCfg(true).then(()=>renderPiecesList()); }); // 동시편집 거부 시 순서 서버 기준으로 재동기화
 }
 /* 드래그로 순서 변경 (같은 악기 안에서) */
 let _dragPid=null;
@@ -1344,13 +1367,14 @@ function _pieceDrop(e,targetId){
   if(from<0||to<0)return;
   list.splice(from,1);list.splice(to,0,src);
   list.forEach((x,i)=>x.order=i);
-  renderPiecesList();pushCfg();
+  renderPiecesList();pushCfg().then(ok=>{ if(!ok)loadCfg(true).then(()=>renderPiecesList()); }); // 동시편집 거부 시 순서 서버 기준으로 재동기화
 }
 function deletePiece(id){
   const p=pieceById(id);if(!p)return;
   if(!confirm(`'${p.title}' 곡을 삭제할까요? (학생 연습기록은 남아있어요)`))return;
   _cfg.pieces=_cfg.pieces.filter(x=>x.id!==id);
-  renderPiecesList();pushCfg().then(()=>toast('삭제됐어요'));
+  renderPiecesList();
+  pushCfg().then(ok=>{ if(ok)toast('삭제됐어요'); else loadCfg(true).then(()=>renderPiecesList()); }); // 동시편집 거부 시 서버 기준으로 되돌림(로컬만 삭제된 채 방치 방지)
 }
 
 let _editPieceId=null,_pendingSheetDataUrl=null,_removeSheet=false;
@@ -1484,6 +1508,16 @@ async function resetMusic(){
   try{const r=await apiPost('resetMusicData',{teacherPw:TEACHER_PW,confirm:'csgo10'});
     if(r&&r.ok){
       toast('초기화 완료');
+      // 🛡️ 초기화 epoch(entriesResetAt)+하드리로드(reloadAt)를 설정에 실어 학생 기기로 전파:
+      //    ① epoch → 학생 로컬 캐시 옛 기록이 병합으로 부활하는 것 차단, ② reloadAt → 열린 학생 세션도 새로고침으로 즉시 반영.
+      const _rt=Date.now(); _cfg.entriesResetAt=_rt; _cfg.reloadAt=_rt;
+      let _prop=false;
+      try{
+        _prop=await pushCfg();
+        // 동시편집 가드로 거부됐으면 서버기준 재동기화 후 epoch 다시 실어 1회 재시도(전파 실패로 인한 부활 최소화)
+        if(!_prop){ await loadCfg(true); _cfg.entriesResetAt=_rt; _cfg.reloadAt=_rt; _prop=await pushCfg(); }
+      }catch(e){}
+      if(!_prop) toast('⚠️ 초기화 전파 실패 — 잠시 후 설정을 한 번 저장해 주세요');
       _allStudents=null;try{localStorage.removeItem('musicAllCache');}catch(e){} // 캐시 무효화(유령 데이터 방지)
       const active=document.getElementById('tStudents').classList.contains('active')?'students'
         :document.getElementById('tRank').classList.contains('active')?'rank':'review';
@@ -1591,6 +1625,9 @@ async function teacherAdjust(code,pieceId,mode){
   d.notices.push({nid:uid('n'),type:'reduce',title,msg:`선생님이 '${title}' 연습 횟수를 ${n}번 정정했어요.`,ts:Date.now()});
   d.notices=d.notices.slice(-100);
   const comp=(d.completions&&typeof d.completions==='object')?d.completions:{}; // 완주 기록 보존(누락 시 즉시표시 어긋남 방지)
+  // 🛡️ '0으로 초기화'는 해당 곡의 '완주' 플래그도 무효화(안 하면 연습 0인데 완주·랭킹 보너스가 남음).
+  //    type:'' + 최신 ts → 기기 간 병합(_mergeComp)에서 옛 완주기록을 이김.
+  if(mode==='zero' && comp[pieceId] && comp[pieceId].type){ comp[pieceId]={type:'',ts:Date.now()}; }
   try{const sr=await apiPost('saveMusicAll',{code,data:{entries:d.entries,delIds:d.delIds,notices:d.notices,completions:comp}});if(!(sr&&sr.ok))throw 0;}
   catch(e){toast('저장 실패');return;}
   const s=(_allStudents||[]).find(x=>x.code===code);if(s)s.data={entries:d.entries,delIds:d.delIds,notices:d.notices,completions:comp};
@@ -1795,6 +1832,29 @@ function exportCsv(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='음악통장기록_'+todayStr()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   _regStatus(`✅ CSV 내보내기 완료 (${rows.length-1}행)`);
+}
+/* 악보 이미지 일괄 다운로드: 등록된 곡들의 악보 이미지를 하나씩 파일로 내려받기(악기_곡명.png) */
+function _safeFile(s){return String(s||'').replace(/[\\/:*?"<>|]/g,'_').replace(/\s+/g,' ').trim().slice(0,60)||'무제';}
+async function exportSheets(){
+  const list=_cfg.pieces.filter(p=>p&&p.sheetUrl).sort((a,b)=>(a.inst||'').localeCompare(b.inst||'')||(a.order||0)-(b.order||0));
+  if(!list.length){_regStatus('내보낼 악보 이미지가 없어요.');return;}
+  let ok=0;
+  for(let i=0;i<list.length;i++){
+    const p=list[i];
+    _regStatus(`⏳ 악보 내려받는 중… (${i+1}/${list.length})`);
+    try{
+      const res=await fetch(_sheetSrc(p.sheetUrl),{cache:'no-store'});
+      const blob=await res.blob();
+      const ext=(blob.type&&blob.type.split('/')[1])||'png';
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download=`${_safeFile(instLabel(p.inst))}_${_safeFile(p.title)}.${ext}`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(u=>URL.revokeObjectURL(u),4000,a.href);
+      ok++;
+      await new Promise(r=>setTimeout(r,350)); // 연속 다운로드 차단 방지
+    }catch(e){/* 개별 실패는 건너뜀 */}
+  }
+  _regStatus(`✅ 악보 내보내기 완료 (${ok}/${list.length}장)`);
 }
 function importData(input){
   const file=input.files&&input.files[0];if(!file)return;
