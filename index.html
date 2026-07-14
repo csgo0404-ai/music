@@ -505,7 +505,7 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
       <h3>🎵 악기 표시</h3>
       <div class="desc">학생 화면에 보여줄 악기를 선택해요.</div>
       <div class="row-inline" id="instToggles" style="margin-bottom:10px"></div>
-      <button class="tbtn" onclick="saveCfgAndReload()">💾 저장 &amp; 학생 화면 새로고침</button>
+      <div class="desc" style="margin-top:2px">악기를 켜고 끄면 <b>바로 저장</b>되고 접속 중인 학생 화면에도 반영돼요.</div>
     </div>
 
     <div class="set-sec">
@@ -526,6 +526,8 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
     <div class="set-sec">
       <h3 style="color:#c0453b">위험 구역</h3>
       <button class="tbtn danger" onclick="resetMusic()">🗑️ 연습기록 전체 초기화</button>
+      <div class="desc" style="margin-top:12px">아래는 연습기록뿐 아니라 <b>학생 계정(명단)까지 모두 삭제</b>해요. 명단은 독서통장 등 다른 앱과 공유되므로 그 앱 로그인도 함께 사라집니다.</div>
+      <button class="tbtn danger" onclick="resetAll()">💥 전체 초기화 (학생 계정도 삭제)</button>
     </div>
   </div>
 </div>
@@ -1285,11 +1287,6 @@ async function toggleInst(key,btn){
   toast(ok?(_cfg.instruments[key].visible?'표시로 저장됐어요 ✅':'숨김으로 저장됐어요 ✅'):'⚠️ 저장 실패');
   if(ok&&document.getElementById('tRank').classList.contains('active'))renderTeacherRank(); // 랭킹에 표시 악기 즉시 반영
 }
-async function saveCfgAndReload(){
-  _cfg.reloadAt=Date.now();
-  const ok=await pushCfg();
-  if(ok)toast('저장됐어요. 접속 중인 학생 화면도 새로고침돼요 ✅');
-}
 async function pushCfg(){
   // 🛡️ 낙관적 동시성 가드: 그 사이 다른 탭/기기가 설정을 바꿨으면(서버 ver > 내 기준 ver) 덮어쓰기 거부
   //    → 곡 추가/삭제 등 남의 변경분이 통째로 소실되는 것 방지. (확인 실패=오프라인 등은 그대로 진행)
@@ -1524,6 +1521,38 @@ async function resetMusic(){
       refreshTeacherData(true,active); // 현재 열린 탭도 즉시 갱신
     }else toast('실패: '+((r&&r.error)||''));
   }catch(e){toast('서버 연결 실패');}
+}
+
+/* 위험: 연습기록 초기화 + 학생 계정(명단)까지 모두 삭제. 명단은 다른 앱과 공유되므로 그 앱 로그인도 사라짐 */
+async function resetAll(){
+  if(!confirm('⚠️ 전체 초기화\n\n모든 연습기록은 물론 학생 계정(명단)까지 삭제돼요.\n명단은 독서통장 등 다른 앱과 공유되므로 그 앱 로그인도 사라집니다.\n\n정말 진행할까요? 되돌릴 수 없어요!'))return;
+  const pw=prompt('전체 초기화 확인 비밀번호를 입력하세요.');
+  if(pw===null)return;                        // 취소
+  if(pw!=='csgo10'){toast('비밀번호가 올바르지 않습니다');return;}
+  _regStatus('⏳ 연습기록 초기화 중...');
+  // 1) 연습기록 초기화(+ epoch/reloadAt 전파)
+  try{
+    const r=await apiPost('resetMusicData',{teacherPw:TEACHER_PW,confirm:'csgo10'});
+    if(!(r&&r.ok)){_regStatus('⚠️ 연습기록 초기화 실패: '+((r&&r.error)||''));return;}
+    const _rt=Date.now(); _cfg.entriesResetAt=_rt; _cfg.reloadAt=_rt;
+    try{ let _prop=await pushCfg(); if(!_prop){ await loadCfg(true); _cfg.entriesResetAt=_rt; _cfg.reloadAt=_rt; await pushCfg(); } }catch(e){}
+  }catch(e){_regStatus('⚠️ 서버 연결 실패');return;}
+  // 2) 학생 계정(명단) 전원 삭제 — 공유 워커 deleteStudent 재사용
+  let codes=[];
+  try{ codes=(await ensureAllStudents(true)||[]).map(s=>s&&s.code).filter(Boolean); }catch(e){}
+  let ok=0,fail=0;
+  for(let i=0;i<codes.length;i++){
+    _regStatus(`⏳ 학생 계정 삭제 중... (${i+1}/${codes.length})`);
+    try{ const r=await apiPost('deleteStudent',{code:codes[i],teacherPw:TEACHER_PW}); if(r&&r.ok)ok++;else fail++; }
+    catch(e){fail++;}
+  }
+  // 3) 캐시 무효화 + 화면 갱신
+  _allStudents=null;try{localStorage.removeItem('musicAllCache');}catch(e){}
+  const active=document.getElementById('tStudents').classList.contains('active')?'students'
+    :document.getElementById('tRank').classList.contains('active')?'rank':'review';
+  await refreshTeacherData(true,active);renderManageList();
+  _regStatus(`✅ 전체 초기화 완료 · 학생 계정 ${ok}명 삭제${fail?` · ${fail}명 실패`:''}`);
+  toast(fail?`전체 초기화 완료(계정 ${fail}명 삭제 실패)`:'전체 초기화 완료');
 }
 
 /* ================= 교사: 전체 학생 데이터 로더(1회 수신 후 공용) ================= */
@@ -1940,20 +1969,20 @@ function renderReview(){
   const dates=[...new Set([...Object.keys(byDate),...Object.keys(compByDate)])].sort().reverse();
   let html='';
   const stuTotal={};rows.forEach(r=>{stuTotal[r.num+'|'+r.name]=1;});compRows.forEach(r=>{stuTotal[r.num+'|'+r.name]=1;});
-  html+=`<div style="margin-bottom:10px;color:var(--brown)">기간 활동 학생 <b>${Object.keys(stuTotal).length}</b>명 · 연습 <b>${rows.length}</b>회 · 외워서완주 <b>${compRows.length}</b>회 <small>(이름 우클릭: 학생 화면)</small></div>`;
+  html+=`<div style="margin-bottom:10px;color:var(--brown)">기간 활동 학생 <b>${Object.keys(stuTotal).length}</b>명 · 연습 <b>${rows.length}</b>회 · 외워서완주 <b>${compRows.length}</b>회 <small>(이름 클릭: 학생 화면)</small></div>`;
   dates.forEach(dt=>{
     html+=`<div class="day-group"><div class="day-head">${dt}</div>`;
     // 외워서 완주(검사자) 먼저 강조
     (compByDate[dt]||[]).sort((a,b)=>(+a.num||9999)-(+b.num||9999)).forEach(r=>{
       const p=pieceById(r.pieceId);const pname=p?p.title:'(삭제된 곡)';
-      html+=`<div class="day-row comp"><span><b class="stt-name" oncontextmenu="return openStudentPage('${esc(r.code)}')" title="우클릭: 학생 화면">${esc(r.name)}</b> — ${esc(pname)} ❤️ 외워서 완주${r.by?` <small>· 검사: ${esc(r.by)}</small>`:''}</span><b style="color:#d1587a">완주</b></div>`;
+      html+=`<div class="day-row comp"><span><b class="stt-name" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--line)" onclick="openStudentPage('${esc(r.code)}')" oncontextmenu="return openStudentPage('${esc(r.code)}')" title="클릭: 학생 화면">${esc(r.name)}</b> — ${esc(pname)} ❤️ 외워서 완주${r.by?` <small>· 검사: ${esc(r.by)}</small>`:''}</span><b style="color:#d1587a">완주</b></div>`;
     });
     // 연습
     const items=byDate[dt]||{};
     Object.keys(items).sort((a,b)=>(+a.split('|')[0])-(+b.split('|')[0])).forEach(sk=>{
       const[num,name,code,pid]=sk.split('|');
       const p=pieceById(pid);const pname=p?p.title:'(삭제된 곡)';
-      html+=`<div class="day-row"><span><b class="stt-name" oncontextmenu="return openStudentPage('${esc(code)}')" title="우클릭: 학생 화면 열기">${esc(name)}</b> — ${esc(pname)}</span><b>${items[sk]}번</b></div>`;
+      html+=`<div class="day-row"><span><b class="stt-name" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--line)" onclick="openStudentPage('${esc(code)}')" oncontextmenu="return openStudentPage('${esc(code)}')" title="클릭: 학생 화면 열기">${esc(name)}</b> — ${esc(pname)}</span><b>${items[sk]}번</b></div>`;
     });
     html+='</div>';
   });
