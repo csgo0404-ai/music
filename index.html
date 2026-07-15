@@ -478,6 +478,18 @@ table.t th{background:var(--sky-soft);color:var(--sky-deep)}
     </div>
 
     <div class="set-sec">
+      <h3>🎼 악보 일괄 업로드</h3>
+      <div class="desc">악보 이미지 여러 장을 한 번에 곡으로 등록해요. <b>파일 이름이 곡 제목</b>이 돼요. <b>악보 내보내기</b>로 받은 영상링크 CSV를 먼저 올려두면, 곡명이 같은 곡에 영상 링크도 자동으로 채워져요.</div>
+      <div class="row-inline">
+        <select id="setBulkInst"><option value="kalimba">칼림바</option><option value="recorder">리코더</option><option value="danso">단소</option></select>
+        <label style="font-size:14px;color:var(--brown)">목표 <input id="setBulkTarget" type="number" min="0" value="20" style="width:70px;padding:6px 8px;border:2px solid var(--line);border-radius:8px">번</label>
+        <label class="tbtn ghost" style="cursor:pointer">🎬 영상링크 CSV<input type="file" accept=".csv,text/csv" style="display:none" onchange="onBulkVidCsv(this)"></label>
+        <label class="tbtn" style="cursor:pointer">🖼️ 이미지 여러 장 선택<input type="file" accept="image/*" multiple style="display:none" onchange="bulkUploadPieces(this,{instId:'setBulkInst',targetId:'setBulkTarget',statusId:'setBulkStatus',useVidMap:true})"></label>
+      </div>
+      <div id="setBulkStatus" style="color:#2f7a4f;font-size:14px;min-height:18px;margin:6px 0"></div>
+    </div>
+
+    <div class="set-sec">
       <h3>➕ 학생 등록</h3>
       <div class="desc">번호·이름·코드를 입력해 학생을 등록해요. 코드는 학생이 로그인할 때 쓰는 열쇠예요.</div>
       <div class="row-inline" style="align-items:flex-end">
@@ -1369,9 +1381,16 @@ function _pieceDrop(e,targetId){
 function deletePiece(id){
   const p=pieceById(id);if(!p)return;
   if(!confirm(`'${p.title}' 곡을 삭제할까요? (학생 연습기록은 남아있어요)`))return;
+  const hadSheet=!!p.sheetUrl; // 서버 저장 성공 후에만 원본 삭제(동시편집 거부 시 이미지 유실 방지)
   _cfg.pieces=_cfg.pieces.filter(x=>x.id!==id);
   renderPiecesList();
-  pushCfg().then(ok=>{ if(ok)toast('삭제됐어요'); else loadCfg(true).then(()=>renderPiecesList()); }); // 동시편집 거부 시 서버 기준으로 되돌림(로컬만 삭제된 채 방치 방지)
+  pushCfg().then(ok=>{ if(ok){toast('삭제됐어요');if(hadSheet)_destroySheet(id);} else loadCfg(true).then(()=>renderPiecesList()); }); // 동시편집 거부 시 서버 기준으로 되돌림(로컬만 삭제된 채 방치 방지)
+}
+/* Cloudinary 원본 삭제(베스트에포트) — 곡/이미지 삭제 시 스토리지 정리.
+   워커의 기존 cloudinaryDestroy 액션 사용(publicId 직접 전달, 교사 비번 불필요).
+   public_id는 업로드와 동일 규칙('music_'+sanitize(id)). 실패해도 앱 동작엔 영향 없음(원본만 남고 앱엔 미표시). */
+function _destroySheet(pieceId){
+  apiPost('cloudinaryDestroy',{publicId:'music_'+_sanitizePublicId(pieceId)}).catch(()=>{});
 }
 
 let _editPieceId=null,_pendingSheetDataUrl=null,_removeSheet=false;
@@ -1435,11 +1454,12 @@ async function savePiece(){
   const title=document.getElementById('pfTitle').value.trim();
   if(!title){document.getElementById('pfMsg').textContent='곡 제목을 입력하세요.';return;}
   const btn=document.getElementById('pfSave');btn.disabled=true;btn.textContent='저장 중…';
-  let p,wasNew=false;
+  let p,wasNew=false,_prevSheet='';
   try{
     if(_editPieceId){p=pieceById(_editPieceId);}
     else{p={id:uid('p'),order:_cfg.pieces.length};_cfg.pieces.push(p);wasNew=true;
       _editPieceId=p.id;} // 저장 실패 후 재시도 시 같은 곡을 수정하도록(중복 생성 방지)
+    _prevSheet=p.sheetUrl||''; // 저장 실패 시 '이미지 삭제'를 화면에서 되돌리기 위한 원본 URL 보관
     p.inst=document.getElementById('pfInst').value;
     p.title=title;
     p.level=+document.getElementById('pfLevel').value||0;
@@ -1452,28 +1472,78 @@ async function savePiece(){
       // 같은 public_id로 덮어써도 URL이 동일 → ?v로 교체된 악보만 재수신, 안 바뀐 건 브라우저 캐시 영구 사용
       p.sheetUrl=url?(url.split('?')[0]+'?v='+Date.now()):url;
     }else if(_removeSheet){
-      p.sheetUrl=''; // 이미지 삭제(Cloudinary 원본은 남지만 앱에선 미표시)
+      p.sheetUrl=''; // 이미지 삭제 → 아래서 Cloudinary 원본도 정리
     }
     const ok=await pushCfg();
     if(!ok)throw new Error('설정 저장 실패');
+    if(_removeSheet)_destroySheet(p.id); // 서버 저장 성공 후 Cloudinary 원본 정리(베스트에포트)
     closeModal('pieceModal');renderPiecesList();toast('저장됐어요 ✅');
   }catch(e){
     // 신규 곡인데 서버 저장이 끝내 실패하면 방금 추가분을 되돌려 중복/유령 곡을 방지
     if(wasNew&&p){_cfg.pieces=_cfg.pieces.filter(x=>x.id!==p.id);_editPieceId=null;}
+    // 기존 곡 '이미지 삭제'가 서버 저장 실패로 반영 안 됐으면 화면상 원본 복원(교체는 Cloudinary가 이미 덮어써 새 이미지가 맞으므로 제외)
+    else if(p&&_removeSheet){p.sheetUrl=_prevSheet;renderPiecesList();}
     document.getElementById('pfMsg').style.color='#c0453b';
     document.getElementById('pfMsg').textContent='실패: '+(e.message||e);
   }finally{btn.disabled=false;btn.textContent='저장';}
 }
 
-/* 이미지 여러 장 → 각 파일명을 제목으로 곡 일괄 등록(순차 업로드로 레이트 스파이크 방지) */
-async function bulkUploadPieces(input){
+/* 제목 정규화(공백·대소문자 무시) — 영상 링크표 매칭용 */
+function _normTitle(s){return String(s||'').trim().toLowerCase().replace(/\s+/g,'');}
+/* 악기 라벨/키 → 내부 키 */
+function _instKeyFromLabel(s){s=String(s||'').trim();const m=INSTS.find(i=>i.label===s||i.key===s);return m?m.key:'';}
+/* CSV 한 줄 파싱(따옴표 처리) */
+function _parseCsvLine(line){
+  const out=[];let cur='',q=false;
+  for(let i=0;i<line.length;i++){const c=line[i];
+    if(q){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=c;}
+    else{if(c==='"')q=true;else if(c===',' ){out.push(cur);cur='';}else cur+=c;}
+  }
+  out.push(cur);return out.map(s=>s.trim());
+}
+/* 설정 일괄업로드에서 함께 올린 '영상링크 CSV'를 저장(곡명→링크) */
+let _bulkVidMap=null;
+async function onBulkVidCsv(input){
+  const f=input.files&&input.files[0];input.value='';
+  const st=document.getElementById('setBulkStatus');if(!f)return;
+  try{
+    const text=await f.text();
+    const map={};let n=0;
+    text.split(/\r?\n/).forEach((line,idx)=>{
+      if(!line.trim())return;
+      if(idx===0 && /영상|링크|url/i.test(line) && !/https?:/i.test(line))return; // 헤더 스킵
+      const cells=_parseCsvLine(line);
+      let inst='',title='',url='';
+      if(cells.length>=3){inst=_instKeyFromLabel(cells[0]);title=cells[1];url=cells[2];}
+      else if(cells.length===2){title=cells[0];url=cells[1];}
+      else return;
+      url=String(url||'').trim();
+      if(!title||!url)return;
+      // 악기가 확인되면 '악기+곡명' 키만 등록(악기 간 같은 곡명 혼선 방지).
+      // 악기를 못 알아본 경우에만 '곡명만' 키로 대체.
+      map[(inst?inst:'')+'|'+_normTitle(title)]=url;
+      n++;
+    });
+    _bulkVidMap=map;
+    st.style.color='#2f7a4f';st.textContent=`✅ 영상 링크 ${n}개 준비됨 — 이제 이미지 여러 장을 선택하면 곡명이 같은 곡에 자동 입력돼요.`;
+  }catch(e){st.style.color='#c0453b';st.textContent='⚠️ CSV 읽기 실패';}
+}
+
+/* 이미지 여러 장 → 각 파일명을 제목으로 곡 일괄 등록(순차 업로드로 레이트 스파이크 방지)
+   opts: {instId,targetId,statusId,useVidMap} — 곡 관리/설정 양쪽에서 재사용 */
+async function bulkUploadPieces(input,opts){
+  opts=opts||{};
+  const instEl=document.getElementById(opts.instId||'bulkInst');
+  const targetEl=document.getElementById(opts.targetId||'bulkTarget');
+  const st=document.getElementById(opts.statusId||'bulkStatus');
   const files=[...(input.files||[])];input.value='';
   if(!files.length)return;
   files.sort((a,b)=>a.name.localeCompare(b.name,'ko',{numeric:true})); // 파일명(=곡명) 순 정렬 후 등록
-  const inst=document.getElementById('bulkInst').value;
-  const target=Math.max(1,+document.getElementById('bulkTarget').value||20);
-  const st=document.getElementById('bulkStatus');
-  let done=0,fail=0;const addedIds=[];
+  const inst=instEl.value;
+  const _tv=String(targetEl.value).trim();
+  const target=_tv===''?20:Math.max(0,Math.floor(+_tv)||0); // 0(이미지만 보기) 허용, 빈칸은 20
+  const vmap=opts.useVidMap?_bulkVidMap:null;
+  let done=0,fail=0,vidSet=0;const addedIds=[];
   for(let i=0;i<files.length;i++){
     const f=files[i];
     st.style.color='#5f7683';st.textContent=`⏳ 업로드 중… (${i+1}/${files.length}) ${f.name}`;
@@ -1482,7 +1552,9 @@ async function bulkUploadPieces(input){
       const id=uid('p');
       const url=await _uploadWithRetry(dataUrl,'music_'+_sanitizePublicId(id));
       const title=f.name.replace(/\.[^.]+$/,'').trim()||'제목없음';
-      _cfg.pieces.push({id,inst,title,level:0,target,videoUrl:'',sheetUrl:url?(url.split('?')[0]+'?v='+Date.now()):'',order:_cfg.pieces.length});
+      let videoUrl='';
+      if(vmap){videoUrl=vmap[inst+'|'+_normTitle(title)]||vmap['|'+_normTitle(title)]||'';if(videoUrl)vidSet++;}
+      _cfg.pieces.push({id,inst,title,level:0,target,videoUrl,sheetUrl:url?(url.split('?')[0]+'?v='+Date.now()):'',order:_cfg.pieces.length});
       addedIds.push(id);done++;
     }catch(e){fail++;}
   }
@@ -1493,7 +1565,7 @@ async function bulkUploadPieces(input){
     renderPiecesList();return;
   }
   st.style.color=fail?'#c0453b':'#2f7a4f';
-  st.textContent=`✅ ${done}곡 등록${fail?` · ${fail}곡 실패`:''}`;
+  st.textContent=`✅ ${done}곡 등록${vmap?` · 영상 ${vidSet}개 연결`:''}${fail?` · ${fail}곡 실패`:''}`;
   renderPiecesList();
 }
 
@@ -1657,6 +1729,8 @@ async function teacherAdjust(code,pieceId,mode){
   // 🛡️ '0으로 초기화'는 해당 곡의 '완주' 플래그도 무효화(안 하면 연습 0인데 완주·랭킹 보너스가 남음).
   //    type:'' + 최신 ts → 기기 간 병합(_mergeComp)에서 옛 완주기록을 이김.
   if(mode==='zero' && comp[pieceId] && comp[pieceId].type){ comp[pieceId]={type:'',ts:Date.now()}; }
+  // 쓰기 직전 재조회 → 교사 read~write 사이 학생이 추가한 entries 보존(워커 full-overwrite 보완)
+  try{const rf=await apiGet('getMusicAll',{code,teacherPw:TEACHER_PW});if(rf&&rf.ok&&rf.data){const seen=new Set(d.entries.map(e=>e.id));(rf.data.entries||[]).forEach(e=>{if(e&&e.id&&!rm.has(e.id)&&!seen.has(e.id))d.entries.push(e);});}}catch(e){}
   try{const sr=await apiPost('saveMusicAll',{code,data:{entries:d.entries,delIds:d.delIds,notices:d.notices,completions:comp}});if(!(sr&&sr.ok))throw 0;}
   catch(e){toast('저장 실패');return;}
   const s=(_allStudents||[]).find(x=>x.code===code);if(s)s.data={entries:d.entries,delIds:d.delIds,notices:d.notices,completions:comp};
@@ -1709,13 +1783,12 @@ function _visRankCount(s){
   if(s&&s.sc&&typeof s.sc==='object'){const vis=_visInstSet();let t=0;for(const k in s.sc){if(vis.has(k))t+=s.sc[k];}return t;}
   return (s&&s.count)||0;
 }
-/* 랭킹 점수(교사·표시 악기만) — 실제 연습 횟수 + 외워서 완주 보너스(곡당 목표의 절반) */
+/* 랭킹 점수(교사·표시 악기만) — 연습 횟수만 합산(워커 sc 집계와 동일 방식 → 학생 화면 순위와 일치) */
 function _rankScore(sd){
-  const ents=(sd&&sd.entries)||[],comp=(sd&&sd.completions)||{};
+  const ents=(sd&&sd.entries)||[];
   const vis=_visInstSet();const pmap={};_cfg.pieces.forEach(p=>pmap[p.id]=p);
   let sc=0;
-  ents.forEach(e=>{const p=e&&pmap[e.pieceId];if(p&&vis.has(p.inst)&&pieceTarget(p)>0)sc++;}); // 표시 악기 연습만(안내자료 target0 제외 — 워커 sc와 일치)
-  _cfg.pieces.forEach(p=>{const tgt=pieceTarget(p);if(tgt>0&&vis.has(p.inst)&&comp[p.id]&&comp[p.id].type==='memorized')sc+=Math.round(tgt/2);});
+  ents.forEach(e=>{const p=e&&pmap[e.pieceId];if(p&&vis.has(p.inst)&&pieceTarget(p)>0)sc++;});
   return sc;
 }
 function renderTeacherRank(){
@@ -1866,7 +1939,10 @@ function exportCsv(){
 function _safeFile(s){return String(s||'').replace(/[\\/:*?"<>|]/g,'_').replace(/\s+/g,' ').trim().slice(0,60)||'무제';}
 async function exportSheets(){
   const list=_cfg.pieces.filter(p=>p&&p.sheetUrl).sort((a,b)=>(a.inst||'').localeCompare(b.inst||'')||(a.order||0)-(b.order||0));
-  if(!list.length){_regStatus('내보낼 악보 이미지가 없어요.');return;}
+  // 영상만 있고 악보 이미지가 없는 곡도 CSV로는 내보내야 하므로, 이미지가 없어도 영상이 있으면 진행.
+  const vlist=_cfg.pieces.filter(p=>p&&(p.videoUrl||p.sheetUrl))
+    .sort((a,b)=>(a.inst||'').localeCompare(b.inst||'')||(a.order||0)-(b.order||0));
+  if(!list.length && !vlist.length){_regStatus('내보낼 악보·영상이 없어요.');return;}
   let ok=0;
   for(let i=0;i<list.length;i++){
     const p=list[i];
@@ -1883,7 +1959,24 @@ async function exportSheets(){
       await new Promise(r=>setTimeout(r,350)); // 연속 다운로드 차단 방지
     }catch(e){/* 개별 실패는 건너뜀 */}
   }
-  _regStatus(`✅ 악보 내보내기 완료 (${ok}/${list.length}장)`);
+  // 영상 링크표(CSV): 영상은 파일이 아니라 유튜브 링크라 이미지로 못 담으므로 별도 CSV로 함께 내려받기.
+  //  → 설정의 '악보 일괄 업로드'에서 이 CSV를 같이 올리면 곡명이 같은 곡에 영상 링크가 자동 입력됨.
+  //  악기별로 CSV를 나눠 내보내(같은 곡명이 악기 간에 섞이지 않도록) 업로드 시 매칭이 명확함.
+  let csvCnt=0,vidCnt=0;
+  INSTS.forEach(ins=>{
+    const items=vlist.filter(p=>p.inst===ins.key);
+    if(!items.length)return;
+    const rows=[['악기','곡명','영상링크']];
+    items.forEach(p=>{rows.push([instLabel(p.inst),p.title||'',p.videoUrl||'']);if(p.videoUrl)vidCnt++;});
+    const csv='﻿'+rows.map(r=>r.map(_csvCell).join(',')).join('\r\n');
+    const cb=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const ca=document.createElement('a');ca.href=URL.createObjectURL(cb);
+    ca.download=`악보_영상링크_${_safeFile(instLabel(ins.key))}_${todayStr()}.csv`;
+    document.body.appendChild(ca);ca.click();ca.remove();
+    setTimeout(u=>URL.revokeObjectURL(u),4000,ca.href);
+    csvCnt++;
+  });
+  _regStatus(`✅ 악보 내보내기 완료 (이미지 ${ok}/${list.length}장 · 영상링크표 CSV ${csvCnt}개, 영상 ${vidCnt}개)`);
 }
 function importData(input){
   const file=input.files&&input.files[0];if(!file)return;
